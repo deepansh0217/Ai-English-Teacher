@@ -10,14 +10,21 @@ The GROQ_API_KEY is read from .env / environment variables on the SERVER
 """
 
 import json
+import os
+import secrets
 import threading
+from datetime import timedelta
 
-from flask import Flask, jsonify, request, send_from_directory
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request, send_from_directory, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from database import (
     init_db,
     connect,
-    get_or_create_user,
+    register_user,
+    get_credentials,
+    get_user,
     get_progress,
     update_progress,
     create_conversation,
@@ -31,7 +38,28 @@ from database import (
 from teacher_graph import build_graph
 from lessons import get_lesson, get_next_lesson
 
+load_dotenv()
+
 app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+# Signs the login cookie. Set a long random SECRET_KEY in .env / on the host.
+if not os.getenv("SECRET_KEY"):
+    print(
+        "WARNING: SECRET_KEY is not set. Using a temporary key, "
+        "so everyone is logged out whenever the server restarts."
+    )
+app.secret_key = os.getenv("SECRET_KEY") or secrets.token_hex(32)
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    # Set COOKIE_SECURE=1 when the site is served over HTTPS (e.g. on Render).
+    SESSION_COOKIE_SECURE=os.getenv("COOKIE_SECURE") == "1",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
+
+# Used so a wrong username takes as long to reject as a wrong password.
+DUMMY_HASH = generate_password_hash("not-a-real-password")
 
 init_db()
 graph, _connection = build_graph()
@@ -163,19 +191,16 @@ def payload():
 
 
 def require_user(data=None):
-    data = data if data is not None else payload()
-    user_id = data.get("user_id") or request.args.get("user_id")
+    # The learner comes from the signed session cookie only.
+    # Any user_id sent by the browser is ignored.
+    user_id = session.get("user_id")
 
     if not user_id:
-        raise ApiError("Please enter your learner name first.", 401)
+        raise ApiError("Please log in first.", 401)
 
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT 1 FROM users WHERE user_id = ?", (user_id,)
-        ).fetchone()
-
-    if row is None:
-        raise ApiError("Learner not found. Please log in again.", 401)
+    if get_user(user_id) is None:
+        session.clear()
+        raise ApiError("Account not found. Please log in again.", 401)
 
     return user_id
 
@@ -224,16 +249,66 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
-# ---------- Learner ----------
+# ---------- Accounts ----------
+
+def start_session(user_id):
+    session.clear()
+    session["user_id"] = user_id
+    session.permanent = True
+
+
+def read_credentials():
+    data = payload()
+    username = data.get("username")
+    password = data.get("password")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise ApiError("Please enter your username and password.")
+    return username.strip(), password
+
+
+@app.post("/api/signup")
+def signup():
+    username, password = read_credentials()
+
+    if not 3 <= len(username) <= 30:
+        raise ApiError("Username must be 3 to 30 characters long.")
+    if not 8 <= len(password) <= 128:
+        raise ApiError("Password must be 8 to 128 characters long.")
+
+    try:
+        user_id = register_user(username, generate_password_hash(password))
+    except ValueError as exc:
+        raise ApiError(str(exc), 409)
+
+    start_session(user_id)
+    return jsonify({"display_name": username})
+
 
 @app.post("/api/login")
 def login():
-    name = (payload().get("name") or "").strip()
-    try:
-        user_id = get_or_create_user(name)
-    except ValueError as exc:
-        raise ApiError(str(exc))
-    return jsonify({"user_id": user_id, "display_name": name})
+    username, password = read_credentials()
+    user_id = username.casefold()
+
+    stored = get_credentials(user_id) if user_id else None
+    password_ok = check_password_hash(stored or DUMMY_HASH, password)
+
+    if stored is None or not password_ok:
+        raise ApiError("Invalid username or password.", 401)
+
+    start_session(user_id)
+    return jsonify({"display_name": get_user(user_id)["display_name"]})
+
+
+@app.post("/api/logout")
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/me")
+def me():
+    user_id = require_user()
+    return jsonify({"display_name": get_user(user_id)["display_name"]})
 
 
 # ---------- Conversations ----------

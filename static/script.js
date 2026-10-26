@@ -3,7 +3,6 @@
 const $ = (sel) => document.querySelector(sel);
 
 const state = {
-  userId: null,
   name: "",
   threadId: null,
   busy: false,
@@ -11,7 +10,7 @@ const state = {
 
 /* ---------- Helpers ---------- */
 
-async function api(path, { method = "GET", body, params } = {}) {
+async function api(path, { method = "GET", body, params, auth = false } = {}) {
   const url = new URL(path, window.location.origin);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -24,7 +23,15 @@ async function api(path, { method = "GET", body, params } = {}) {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Something went wrong.");
+
+  if (!res.ok) {
+    if (res.status === 401 && !auth) {
+      showLogin("Your session has ended. Please log in again.");
+    }
+    const err = new Error(data.error || "Something went wrong.");
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -49,15 +56,28 @@ function setBusy(busy) {
   });
 }
 
-/* ---------- Login ---------- */
+/* ---------- Login / Signup ---------- */
 
-async function login(name) {
-  const data = await api("/api/login", { method: "POST", body: { name } });
-  state.userId = data.user_id;
-  state.name = data.display_name;
-  localStorage.setItem("learnerName", state.name);
+let authMode = "login"; // "login" or "signup"
 
-  $("#whoName").textContent = state.name;
+function setAuthMode(mode) {
+  authMode = mode;
+  const signup = mode === "signup";
+  $("#authSubmit").textContent = signup ? "Create account" : "Log in";
+  $("#authSwitchText").textContent = signup ? "Already have an account?" : "New here?";
+  $("#authSwitchBtn").textContent = signup ? "Log in" : "Create an account";
+  $("#authHint").hidden = !signup;
+  $("#passwordInput").autocomplete = signup ? "new-password" : "current-password";
+  $("#loginError").hidden = true;
+}
+
+$("#authSwitchBtn").addEventListener("click", () => {
+  setAuthMode(authMode === "login" ? "signup" : "login");
+});
+
+async function enterApp(name) {
+  state.name = name;
+  $("#whoName").textContent = name;
   $("#login").hidden = true;
   $("#app").hidden = false;
 
@@ -65,29 +85,59 @@ async function login(name) {
   await loadConversations(true);
 }
 
+function showLogin(message = "") {
+  state.threadId = null;
+  $("#app").hidden = true;
+  $("#login").hidden = false;
+  $("#passwordInput").value = "";
+  $("#quizForm").innerHTML = "";
+  $("#quizResult").hidden = true;
+  switchTab("chat");
+
+  const err = $("#loginError");
+  err.textContent = message;
+  err.hidden = !message;
+}
+
 $("#loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const err = $("#loginError");
+  const btn = $("#authSubmit");
   err.hidden = true;
+  btn.disabled = true;
+
   try {
-    await login($("#nameInput").value);
+    const data = await api(authMode === "signup" ? "/api/signup" : "/api/login", {
+      method: "POST",
+      auth: true,
+      body: {
+        username: $("#nameInput").value,
+        password: $("#passwordInput").value,
+      },
+    });
+    $("#passwordInput").value = "";
+    await enterApp(data.display_name);
   } catch (ex) {
     err.textContent = ex.message;
     err.hidden = false;
+  } finally {
+    btn.disabled = false;
   }
 });
 
-$("#logoutBtn").addEventListener("click", () => {
-  localStorage.removeItem("learnerName");
+$("#logoutBtn").addEventListener("click", async () => {
+  try {
+    await api("/api/logout", { method: "POST", body: {}, auth: true });
+  } catch (_) {
+    /* reload anyway */
+  }
   location.reload();
 });
 
 /* ---------- Conversations ---------- */
 
 async function loadConversations(openFirst = false) {
-  const { conversations } = await api("/api/conversations", {
-    params: { user_id: state.userId },
-  });
+  const { conversations } = await api("/api/conversations");
 
   if (openFirst) {
     if (conversations.length) {
@@ -118,7 +168,7 @@ async function loadConversations(openFirst = false) {
 async function createConversation(refresh = true) {
   const { thread_id } = await api("/api/conversations", {
     method: "POST",
-    body: { user_id: state.userId },
+    body: {},
   });
   state.threadId = thread_id;
   if (refresh) {
@@ -174,7 +224,7 @@ async function loadMessages() {
   box.innerHTML = "";
 
   const { messages } = await api("/api/messages", {
-    params: { user_id: state.userId, thread_id: state.threadId },
+    params: { thread_id: state.threadId },
   });
 
   if (!messages.length) {
@@ -196,7 +246,7 @@ async function sendChat(text) {
   try {
     const { answer } = await api("/api/chat", {
       method: "POST",
-      body: { user_id: state.userId, thread_id: state.threadId, message: text },
+      body: { thread_id: state.threadId, message: text },
     });
     typing.remove();
     addMessage("assistant", answer);
@@ -235,7 +285,7 @@ $("#chatForm").addEventListener("submit", (e) => {
 /* ---------- Lesson panel ---------- */
 
 async function loadLesson() {
-  const data = await api("/api/lesson", { params: { user_id: state.userId } });
+  const data = await api("/api/lesson");
   const { lesson } = data;
 
   $("#lessonTitle").textContent = lesson.title;
@@ -265,7 +315,7 @@ $("#teachBtn").addEventListener("click", async () => {
   try {
     await api("/api/lesson/teach", {
       method: "POST",
-      body: { user_id: state.userId, thread_id: state.threadId },
+      body: { thread_id: state.threadId },
     });
     await loadMessages();
     await loadConversations();
@@ -283,7 +333,7 @@ $("#completeBtn").addEventListener("click", async () => {
   try {
     await api("/api/lesson/complete", {
       method: "POST",
-      body: { user_id: state.userId },
+      body: {},
     });
     await loadLesson();
   } catch (ex) {
@@ -363,7 +413,7 @@ function renderQuiz(questions) {
 async function loadQuiz() {
   try {
     const { questions } = await api("/api/quiz", {
-      params: { user_id: state.userId, category: $("#categorySelect").value },
+      params: { category: $("#categorySelect").value },
     });
     renderQuiz(questions);
   } catch (ex) {
@@ -380,7 +430,7 @@ $("#genQuizBtn").addEventListener("click", async () => {
   try {
     const { questions } = await api("/api/quiz/generate", {
       method: "POST",
-      body: { user_id: state.userId, category: $("#categorySelect").value },
+      body: { category: $("#categorySelect").value },
     });
     renderQuiz(questions);
     showQuizMessage("New test generated successfully!");
@@ -412,7 +462,6 @@ $("#quizForm").addEventListener("submit", async (e) => {
     const data = await api("/api/quiz/submit", {
       method: "POST",
       body: {
-        user_id: state.userId,
         thread_id: state.threadId,
         category: $("#categorySelect").value,
         answers,
@@ -475,9 +524,7 @@ function renderResult({ score, total, results }) {
 /* ---------- Progress ---------- */
 
 async function loadProgress() {
-  const { completed, results } = await api("/api/progress", {
-    params: { user_id: state.userId },
-  });
+  const { completed, results } = await api("/api/progress");
 
   $("#completedCount").textContent = completed.length;
   $("#completedIds").textContent = completed.length ? completed.join(", ") : "None yet";
@@ -503,14 +550,12 @@ async function loadProgress() {
 /* ---------- Start ---------- */
 
 (async function init() {
-  const saved = localStorage.getItem("learnerName");
-  if (saved) {
-    try {
-      await login(saved);
-      return;
-    } catch (_) {
-      localStorage.removeItem("learnerName");
-    }
+  let me;
+  try {
+    me = await api("/api/me", { auth: true });
+  } catch (_) {
+    $("#nameInput").focus();
+    return;
   }
-  $("#nameInput").focus();
+  await enterApp(me.display_name);
 })();

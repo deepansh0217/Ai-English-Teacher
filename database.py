@@ -28,6 +28,12 @@ def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS credentials (
+                user_id TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(user_id)
+            );
+
             CREATE TABLE IF NOT EXISTS conversations (
                 thread_id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -85,6 +91,67 @@ def get_or_create_user(display_name):
         )
 
     return user_id
+
+
+def register_user(username, password_hash):
+    """Create a new account. Raises ValueError if the username is taken."""
+    username = username.strip()
+    user_id = username.casefold()
+
+    if not user_id:
+        raise ValueError("Please enter a username.")
+
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO users(user_id, display_name)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                display_name = excluded.display_name
+            """,
+            (user_id, username),
+        )
+
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO learner_progress(user_id)
+            VALUES (?)
+            """,
+            (user_id,),
+        )
+
+        try:
+            conn.execute(
+                """
+                INSERT INTO credentials(user_id, password_hash)
+                VALUES (?, ?)
+                """,
+                (user_id, password_hash),
+            )
+        except sqlite3.IntegrityError:
+            raise ValueError("This username is already taken.")
+
+    return user_id
+
+
+def get_credentials(user_id):
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT password_hash FROM credentials WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+
+    return row["password_hash"] if row else None
+
+
+def get_user(user_id):
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT user_id, display_name FROM users WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+
+    return dict(row) if row else None
 
 
 def get_progress(user_id):

@@ -3,103 +3,112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ZeroToFluent | Your English classroom</title>
+  <title>AI English Teacher</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=Young+Serif&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <!-- Student welcome -->
+
+  <!-- Login -->
   <div id="login" class="login">
-    <form id="loginForm" class="login-card">
-      <div class="welcome-art" aria-hidden="true"><span class="art-star star-one">✳</span><span class="art-star star-two">✦</span><span class="art-book">A<span>＋</span></span><span class="art-pencil">✎</span></div>
-      <p class="eyebrow">YOUR ENGLISH CLASSROOM</p>
-      <h1>Big words.<br><span>Bright future.</span></h1>
-      <p class="welcome-copy">A friendly teacher, lessons made for you, and a little more confidence every day.</p>
-      <label for="nameInput">What should your teacher call you?</label>
-      <input id="nameInput" type="text" placeholder="Your name" autocomplete="off" required>
-      <small>Your name helps us find your learning progress next time.</small>
-      <p id="loginError" class="error" role="alert" hidden></p>
-      <button class="btn primary" type="submit">Step into class <span aria-hidden="true">→</span></button>
-      <p class="welcome-foot"><span aria-hidden="true">✦</span> Learn at your own pace. Every question is welcome.</p>
-    </form>
+    <div class="auth-shell">
+      <section class="auth-visual" aria-label="A welcoming place to practise English">
+        <img src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&amp;fit=crop&amp;w=1400&amp;q=85" alt="Student studying in a bright classroom">
+        <div class="auth-visual-shade"></div>
+        <div class="auth-visual-copy">
+          <span class="auth-kicker">YOUR ENGLISH, YOUR PACE</span>
+          <h2>Small steps.<br>Brighter confidence.</h2>
+          <p>Practise a little every day with a teacher who is always ready to help.</p>
+          <div class="auth-quote"><span aria-hidden="true">✦</span> Every new word opens a door.</div>
+        </div>
+      </section>
+      <form id="loginForm" class="login-card">
+        <div class="auth-brand"><span class="auth-brand-icon" aria-hidden="true">A<span>+</span></span><span>English<span class="brand-light">mate</span></span></div>
+        <p class="auth-eyebrow">WELCOME TO YOUR CLASSROOM</p>
+        <h1>Learn with confidence.</h1>
+        <p class="auth-intro">Your friendly AI English teacher is ready when you are.</p>
+        <label for="nameInput">Username</label>
+        <input id="nameInput" type="text" placeholder="Enter your username" autocomplete="username" maxlength="30" required>
+        <label for="passwordInput">Password</label>
+        <input id="passwordInput" type="password" placeholder="Enter your password" autocomplete="current-password" maxlength="128" required>
+        <small id="authHint" hidden>Use at least 8 characters for your password.</small>
+        <p id="loginError" class="error" role="alert" hidden></p>
+        <button id="authSubmit" class="btn primary" type="submit">Log in <span aria-hidden="true">→</span></button>
+        <p class="switch"><span id="authSwitchText">New here?</span> <button id="authSwitchBtn" class="link-btn" type="button">Create an account</button></p>
+        <p class="auth-footnote"><span aria-hidden="true">✦</span> Learn at your own pace. Every question is welcome.</p>
+      </form>
+    </div>
   </div>
 
-  <!-- Student classroom -->
+  <!-- App -->
   <div id="app" class="app" hidden>
     <aside id="sidebar" class="sidebar">
-      <div class="school-mark" aria-label="ZeroToFluent"><span class="mark-icon">Z<span>✦</span></span><span>zero<span class="mark-light">to</span>fluent<small>YOUR LEARNING SPACE</small></span></div>
-
-      <div class="student-card">
-        <div class="student-avatar" aria-hidden="true">✿</div>
-        <div class="student-copy"><small>STUDENT</small><strong id="whoName"></strong><button id="logoutBtn" class="link-btn" type="button">Switch learner</button></div>
+      <div class="side-block">
+        <p class="who">Learning as <strong id="whoName"></strong></p>
+        <button id="logoutBtn" class="link-btn" type="button">Log out</button>
       </div>
 
-      <div class="side-block conversations-block">
-        <h2><span class="side-icon" aria-hidden="true">▤</span> My classroom</h2>
-        <button id="newConvBtn" class="btn new-class-btn" type="button"><span aria-hidden="true">＋</span> New conversation</button>
-        <p class="side-label">RECENT CHATS</p>
+      <div class="side-block">
+        <h2>Your conversations</h2>
+        <button id="newConvBtn" class="btn full" type="button">New conversation</button>
         <ul id="convList" class="conv-list"></ul>
       </div>
 
-      <div class="side-block lesson-block">
-        <h2><span class="side-icon" aria-hidden="true">✎</span> Today’s lesson</h2>
+      <div class="side-block">
+        <h2>Current lesson</h2>
         <div class="lesson-card">
-          <div class="lesson-art" aria-hidden="true"><span>✦</span><span>✎</span><span>✿</span></div>
-          <p class="lesson-tag">YOUR NEXT STEP</p>
           <h3 id="lessonTitle"></h3>
-          <p class="meta">Level <span id="lessonLevel"></span></p>
+          <p class="meta">Level: <span id="lessonLevel"></span></p>
           <p id="lessonObjective"></p>
           <details>
-            <summary>Peek inside this lesson <span aria-hidden="true">⌄</span></summary>
+            <summary>Lesson explanation</summary>
             <p id="lessonExplain"></p>
             <ul id="lessonExamples"></ul>
           </details>
         </div>
-        <button id="teachBtn" class="btn primary full" type="button"><span aria-hidden="true">✦</span> Start this lesson</button>
-        <button id="completeBtn" class="btn continue-btn full" type="button">I’ve got it — next lesson <span aria-hidden="true">→</span></button>
-        <p id="curriculumDone" class="success" hidden>You finished every lesson in this starter course. Wonderful work!</p>
+        <button id="teachBtn" class="btn primary full" type="button">Teach me this lesson</button>
+        <button id="completeBtn" class="btn full" type="button">Complete lesson &amp; continue</button>
+        <p id="curriculumDone" class="success" hidden>You reached the end of the starter curriculum!</p>
       </div>
-      <div class="sidebar-note"><span aria-hidden="true">☼</span> Small steps turn into big progress.</div>
     </aside>
 
     <main class="main">
       <header class="topbar">
-        <button id="menuBtn" class="menu-btn" type="button" aria-label="Open menu">☰</button>
-        <div class="page-heading">
-          <p class="eyebrow">YOUR LEARNING SPACE</p>
-          <h1>Welcome to class<span class="heading-spark">✦</span></h1>
-          <p class="heading-subtitle">A little practice today goes a long way.</p>
+        <button id="menuBtn" class="menu-btn" type="button" aria-label="Open menu">Menu</button>
+        <div>
+          <h1>AI English Teacher</h1>
+          <p>Learn English from zero, one step at a time.</p>
         </div>
-        <div class="teacher-status"><span class="status-dot"></span><span><strong>Your teacher</strong><small>Here to help you learn</small></span><span class="teacher-avatar" aria-hidden="true">☺</span></div>
       </header>
 
-      <nav class="tabs" role="tablist" aria-label="Learning sections">
-        <button class="tab active" role="tab" data-tab="chat" aria-selected="true"><span aria-hidden="true">✦</span> Teacher chat</button>
-        <button class="tab" role="tab" data-tab="test" aria-selected="false"><span aria-hidden="true">✎</span> Practice</button>
-        <button class="tab" role="tab" data-tab="progress" aria-selected="false"><span aria-hidden="true">▥</span> My progress</button>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" role="tab" data-tab="chat" aria-selected="true">Teacher chat</button>
+        <button class="tab" role="tab" data-tab="test" aria-selected="false">English tests</button>
+        <button class="tab" role="tab" data-tab="progress" aria-selected="false">My progress</button>
       </nav>
 
       <!-- Chat -->
-      <section id="tab-chat" class="panel chat-panel">
-        
+      <section id="tab-chat" class="panel">
+     
         <div id="messages" class="messages" aria-live="polite"></div>
         <form id="chatForm" class="composer">
-          <span class="composer-spark" aria-hidden="true">✦</span>
-          <textarea id="chatInput" rows="1" placeholder="Write a message to your teacher..." aria-label="Message"></textarea>
-          <button class="btn primary" type="submit" id="sendBtn">Send <span aria-hidden="true">↑</span></button>
+          <textarea id="chatInput" rows="1" placeholder="Ask a question or practise English..." aria-label="Message"></textarea>
+          <button class="btn primary" type="submit" id="sendBtn">Send</button>
         </form>
-        <p class="composer-hint">Press Enter to send <span>·</span> Shift + Enter for a new line</p>
       </section>
 
       <!-- Tests -->
-      <section id="tab-test" class="panel study-panel" hidden>
-        <div class="section-intro"><p class="eyebrow">PRACTISE MAKES PROGRESS</p><h2>Ready for a little challenge?</h2><p>Try a short activity and see what you already know.</p></div>
+      <section id="tab-test" class="panel" hidden>
+        <h2>Practice your English</h2>
         <div class="row">
-          <label for="categorySelect">Pick a subject</label>
-          <select id="categorySelect"><option>Vocabulary</option><option>Tenses</option></select>
-          <button id="genQuizBtn" class="btn primary" type="button">Make me a practice quiz <span aria-hidden="true">✦</span></button>
+          <label for="categorySelect">Choose a test</label>
+          <select id="categorySelect">
+            <option>Vocabulary</option>
+            <option>Tenses</option>
+          </select>
+          <button id="genQuizBtn" class="btn" type="button">Generate new test</button>
         </div>
         <p id="quizMsg" class="notice" role="alert" hidden></p>
         <form id="quizForm" class="quiz"></form>
@@ -107,13 +116,16 @@
       </section>
 
       <!-- Progress -->
-      <section id="tab-progress" class="panel study-panel" hidden>
-        <div class="section-intro"><p class="eyebrow">LOOK HOW FAR YOU’VE COME</p><h2>Your learning scrapbook</h2><p>Every lesson and practice quiz is a step forward.</p></div>
-        <div class="stat"><span class="stat-sticker" aria-hidden="true">✦</span><span id="completedCount" class="stat-num">0</span><span>lessons completed</span></div>
-        <p class="completed-line">Completed lessons: <span id="completedIds">None yet</span></p>
-        <h3 class="history-heading">Practice quiz memories</h3>
+      <section id="tab-progress" class="panel" hidden>
+        <h2>Your learning progress</h2>
+        <div class="stat">
+          <span id="completedCount" class="stat-num">0</span>
+          <span>Completed lessons</span>
+        </div>
+        <p>Completed lesson IDs: <span id="completedIds">None yet</span></p>
+        <h3>Test history</h3>
         <ul id="history" class="history"></ul>
-        <p id="historyEmpty" class="notice empty-history">Your quiz scores will show up here after your first practice.</p>
+        <p id="historyEmpty" class="notice">Your test scores will appear here after your first test.</p>
       </section>
     </main>
   </div>
